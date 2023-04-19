@@ -18,7 +18,7 @@ def rent_division(agents_values, total_rent):
 
     # Find max weight matching
     matching_set = nx.max_weight_matching(G, maxcardinality=True)
-    matching = {agent: room for agent, room in ((a, b) if a < b else (b, a) for a, b in matching_set)}
+    matching = {agent: room - num_agents for agent, room in ((a, b) if a < b else (b, a) for a, b in matching_set)}
 
     # Prepare data for linear programming
     c = [-1] * num_rooms
@@ -29,12 +29,12 @@ def rent_division(agents_values, total_rent):
     b_ub = []
 
     for i in range(num_agents):
-        room_idx = matching[i] - num_agents
+        room_idx = matching[i]
         agent_room_value = agents_values[i][room_idx]
 
         for j in range(num_agents):
             if i != j:
-                other_room_idx = matching[j] - num_agents
+                other_room_idx = matching[j]
                 agent_value_for_other_room = agents_values[i][other_room_idx]
 
                 row = [0] * num_rooms
@@ -51,7 +51,7 @@ def rent_division(agents_values, total_rent):
     room_prices = res.x
 
     # Assign rooms and prices
-    assignments = {i: (matching[i]-num_agents, price) for i, price in enumerate(room_prices)}
+    assignments = {agent: (matching[agent], round(room_prices[matching[agent]], 2)) for agent in range(num_agents)}
 
     return assignments
 
@@ -68,7 +68,7 @@ def is_envy_free(assignments, agents_values, total_rent):
                 j_room, j_payment = assignments[j]
                 i_utility_for_j_room = agents_values[i][j_room] - j_payment
 
-                if i_utility < i_utility_for_j_room:
+                if i_utility < i_utility_for_j_room - 0.01:
                     print(i, j)
                     return False
 
