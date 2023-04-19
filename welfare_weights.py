@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # - Want to find EF solutions for general cases
 # - Want to know under what values of w_i is an EF solution also a welfare-maximizing assn
 
-def welfare_maximizing_assn(agents_values, total_rent):
+def matching_assn(agents_values, agents_weights, total_rent):
     num_agents = len(agents_values)
     num_rooms = len(agents_values[0])
 
@@ -19,7 +19,8 @@ def welfare_maximizing_assn(agents_values, total_rent):
     # Add edges with weights (values)
     for i, values in enumerate(agents_values):
         for j, value in enumerate(values):
-            G.add_edge(i, num_agents+j, weight=value)
+            G.add_edge(i, num_agents+j, weight=(value / agents_weights[i]))
+            # G.add_edge(i, num_agents+j, weight=value)
 
     # Find max weight matching
     matching_set = nx.max_weight_matching(G, maxcardinality=True)
@@ -29,7 +30,7 @@ def rent_division(agents_values, agents_weights, total_rent):
     num_agents = len(agents_values)
     num_rooms = len(agents_values[0])
 
-    matching = welfare_maximizing_assn(agents_values, agents_weights)
+    matching = matching_assn(agents_values, agents_weights, agents_weights)
 
     # Prepare data for linear programming
     c = [-1] * num_rooms
@@ -93,7 +94,7 @@ def run_instance(agents_values, agents_weights, total_rent, print_ans=True):
     assignments = rent_division(agents_values, agents_weights, total_rent)
     if not assignments:
         if print_ans:
-            print("No EF soln under welfare-maximizing assignment")
+            print("No EF soln under matching assignment")
         return False
     # If Linear Programming is correct, then it must be envy-free
     try:
@@ -105,34 +106,48 @@ def run_instance(agents_values, agents_weights, total_rent, print_ans=True):
         print("EF Solution found:", assignments)
     return True
 
+def check_sufficient_cond(agents_values, agents_weights, total_rent):
+    failed = []
+    for i, values in enumerate(agents_values):
+        if total_rent * (1 - agents_weights[i]) > min(values) * len(agents_values):
+            failed.append(i)
+    return failed
+
 agents_values = [
-    [6, 2, 2],
-    [8, 1, 1],
-    [3, 3, 4]
+    [9, 1],
+    [7, 3]
 ]
-agents_weights = [0.4, 0.7, 1]
+# agents_weights = [1, 1, 0.00001]
 total_rent = 10
 
-run_instance(agents_values, agents_weights, total_rent)
+# run_instance(agents_values, agents_weights, total_rent)
 
-# precision = 100
-# upper_bound = 1
-# bool_array = np.zeros(((upper_bound * precision) + 1, (upper_bound * precision) + 1), dtype=bool)
-# for i in range(0, (upper_bound * precision) + 1):
-#     for j in range(0, (upper_bound * precision) + 1):
-#         bool_array[i, j] = run_instance(agents_values, [i / precision, j / precision], total_rent, False)
+precision = 100
+upper_bound = 1
+bool_array = np.zeros((upper_bound * precision, upper_bound * precision), dtype=bool)
+for i in range(1, (upper_bound * precision) + 1):
+    for j in range(1, (upper_bound * precision) + 1):
+        bool_array[i - 1, j - 1] = run_instance(agents_values, [i / precision, j / precision], total_rent, False)
+        # if len(check_sufficient_cond(agents_values, [i / precision, j / precision], total_rent)) == 0:
+        #     if not bool_array[i, j]:
+        #         print("Sufficient?")
+        #     print(bool_array[i, j])
+        # if bool_array[i, j] and len(check_sufficient_cond(agents_values, [i / precision, j / precision], total_rent)) > 0:
+        #     print("Not Necessary", i / precision, j / precision)
+        # else:
+        #     print("No EF soln", check_sufficient_cond(agents_values, [i / precision, j / precision], total_rent))
 
-# # create a color map that maps True to green and False to red
-# cmap = plt.get_cmap('RdYlGn')
-# cmap.set_bad(color='red')
-# cmap.set_over(color='green')
-# cmap.set_under(color='red')
+# create a color map that maps True to green and False to red
+cmap = plt.get_cmap('RdYlGn')
+cmap.set_bad(color='red')
+cmap.set_over(color='green')
+cmap.set_under(color='red')
 
-# # plot the boolean array as an image
-# fig, ax = plt.subplots()
-# ax.imshow(bool_array, cmap=cmap, interpolation='nearest', vmin=0, vmax=1, extent=[0, upper_bound, 0, upper_bound])
-# ax.set_xlabel("w_0")
-# ax.set_ylabel("w_1")
+# plot the boolean array as an image
+fig, ax = plt.subplots()
+ax.imshow(bool_array, cmap=cmap, interpolation='nearest', vmin=0, vmax=1, extent=[1 / precision, upper_bound, 1 / precision, upper_bound])
+ax.set_xlabel("w_0")
+ax.set_ylabel("w_1")
 
-# # show the plot
-# plt.show()
+# show the plot
+plt.show()
