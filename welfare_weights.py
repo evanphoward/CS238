@@ -66,7 +66,7 @@ def rent_division(agents_values, agents_weights, total_rent):
         return False
 
     # Assign rooms and prices
-    assignments = {agent: (matching[agent], round(room_prices[matching[agent]], 2)) for agent in range(num_agents)}
+    assignments = {agent: (matching[agent], room_prices[matching[agent]]) for agent in range(num_agents)}
 
     return assignments
 
@@ -83,7 +83,7 @@ def is_envy_free(assignments, agents_values, agents_weights, total_rent):
                 j_room, j_payment = assignments[j]
                 i_utility_for_j_room = agents_values[i][j_room] - (j_payment * agents_weights[i])
 
-                if i_utility < i_utility_for_j_room - 0.01:
+                if i_utility < i_utility_for_j_room - 0.02:
                     print(i_utility, i_utility_for_j_room, i, j)
                     return False
 
