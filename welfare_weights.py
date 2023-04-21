@@ -2,10 +2,9 @@ import networkx as nx
 from scipy.optimize import linprog
 import numpy as np
 import matplotlib.pyplot as plt
-
-# Two questions: 
-# - Want to find EF solutions for general cases
-# - Want to know under what values of w_i is an EF solution also a welfare-maximizing assn
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import random
 
 def matching_assn(agents_values, agents_weights, total_rent):
     num_agents = len(agents_values)
@@ -20,7 +19,6 @@ def matching_assn(agents_values, agents_weights, total_rent):
     for i, values in enumerate(agents_values):
         for j, value in enumerate(values):
             G.add_edge(i, num_agents+j, weight=(value / agents_weights[i]))
-            # G.add_edge(i, num_agents+j, weight=value)
 
     # Find max weight matching
     matching_set = nx.max_weight_matching(G, maxcardinality=True)
@@ -113,41 +111,95 @@ def check_sufficient_cond(agents_values, agents_weights, total_rent):
             failed.append(i)
     return failed
 
-agents_values = [
-    [9, 1],
-    [7, 3]
-]
-# agents_weights = [1, 1, 0.00001]
+def get_random_values(total_rent, num_rooms):
+    random_numbers = np.random.rand(num_rooms - 1) * total_rent
+    random_numbers.sort()
+    random_numbers = np.concatenate(([0], random_numbers, [total_rent]))
+    random_numbers = np.diff(random_numbers)
+    return list(random_numbers)
+
+# agents_values = [
+#     [1, 8, 1],
+#     [2, 5, 3],
+#     [2, 7, 1]
+# ]
 total_rent = 10
+agents_values = [get_random_values(total_rent, 3) for _ in range(3)]
+# agents_weights = [1, 1, 0.00001]
+
 
 # run_instance(agents_values, agents_weights, total_rent)
 
-precision = 100
+precision = 20
 upper_bound = 1
-bool_array = np.zeros((upper_bound * precision, upper_bound * precision), dtype=bool)
+bool_array = np.zeros((upper_bound * precision, upper_bound * precision, upper_bound * precision), dtype=bool)
 for i in range(1, (upper_bound * precision) + 1):
     for j in range(1, (upper_bound * precision) + 1):
-        bool_array[i - 1, j - 1] = run_instance(agents_values, [i / precision, j / precision], total_rent, False)
-        # if len(check_sufficient_cond(agents_values, [i / precision, j / precision], total_rent)) == 0:
-        #     if not bool_array[i, j]:
-        #         print("Sufficient?")
-        #     print(bool_array[i, j])
-        # if bool_array[i, j] and len(check_sufficient_cond(agents_values, [i / precision, j / precision], total_rent)) > 0:
-        #     print("Not Necessary", i / precision, j / precision)
-        # else:
-        #     print("No EF soln", check_sufficient_cond(agents_values, [i / precision, j / precision], total_rent))
+        for k in range(1, (upper_bound * precision) + 1):
+            bool_array[i - 1, j - 1, k - 1] = run_instance(agents_values, [i / precision, j / precision, k / precision], total_rent, False)
 
+# 2 Agent Visualization
 # create a color map that maps True to green and False to red
-cmap = plt.get_cmap('RdYlGn')
-cmap.set_bad(color='red')
-cmap.set_over(color='green')
-cmap.set_under(color='red')
+# cmap = plt.get_cmap('RdYlGn')
+# cmap.set_bad(color='red')
+# cmap.set_over(color='green')
+# cmap.set_under(color='red')
 
-# plot the boolean array as an image
-fig, ax = plt.subplots()
-ax.imshow(bool_array, cmap=cmap, interpolation='nearest', vmin=0, vmax=1, extent=[1 / precision, upper_bound, 1 / precision, upper_bound])
-ax.set_xlabel("w_0")
-ax.set_ylabel("w_1")
+# # plot the boolean array as an image
+# fig, ax = plt.subplots()
+# ax.imshow(bool_array, cmap=cmap, interpolation='nearest', vmin=0, vmax=1, extent=[1 / precision, upper_bound, 1 / precision, upper_bound])
+# ax.set_xlabel("w_0")
+# ax.set_ylabel("w_1")
 
-# show the plot
+# # show the plot
+# plt.show()
+
+# 3 Agent Visualization
+# Convert boolean data to integers (1 for True, 0 for False)
+int_data = bool_array.astype(int)
+
+# Create a meshgrid for the x, y, and z coordinates
+x, y, z = np.meshgrid(np.arange(bool_array.shape[0]), np.arange(bool_array.shape[1]), np.arange(bool_array.shape[2]), indexing='ij')
+
+# Create the 3D plot
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+kw = {
+    'vmin': 0,
+    'vmax': 1,
+    'cmap': plt.cm.get_cmap('RdYlGn', 2),  # Set colormap to RdYlGn and discretize it into 2 levels
+}
+
+_ = ax.contourf(
+    x[:, :, -1], y[:, :, -1], int_data[:, :, -1],
+    zdir='z', offset=x.max(), **kw
+)
+_ = ax.contourf(
+    x[:, 0, :], int_data[:, 0, :], z[:, 0, :],
+    zdir='y', offset=0, **kw
+)
+_ = ax.contourf(
+    int_data[-1, :, :], y[-1, :, :], z[-1, :, :],
+    zdir='x', offset=x.max(), **kw
+)
+
+ax.set_xlabel('W_0')
+ax.set_ylabel('W_1')
+ax.set_zlabel('W_2')
+
+xmin, xmax = x.min(), x.max()
+ymin, ymax = y.min(), y.max()
+zmin, zmax = z.min(), z.max()
+ax.set(xlim=[xmin, xmax], ylim=[ymin, ymax], zlim=[zmin, zmax])
+edges_kw = dict(color='0.8', linewidth=0.5, zorder=1e3)
+ax.plot([xmax, xmax], [ymin, ymax], [zmax, zmax], **edges_kw)
+ax.plot([xmin, xmax], [ymin, ymin], [zmax, zmax], **edges_kw)
+ax.plot([xmax, xmax], [ymin, ymin], [zmin, zmax], **edges_kw)
+
+ax.set_xticklabels([round(float(item) / precision, 2) for item in ax.get_xticks()])
+ax.set_yticklabels([round(float(item) / precision, 2) for item in ax.get_yticks()])
+ax.set_zticklabels([round(float(item) / precision, 2) for item in ax.get_zticks()])
+
+ax.view_init(30, -60)  # Adjust the viewing angle
 plt.show()
